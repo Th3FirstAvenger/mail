@@ -61,7 +61,6 @@ services:
       - ./carter:/usr/share/nginx/html:ro
     labels:
       - traefik.backend=carter
-      - traefik.frontend.auth.basic=profe:$$apr1$$UezplC3K$$xvjfaBhEE7fa8nauK/RMm1 # Demanar credencials per accedir previament exportades
       - traefik.frontend.rule=Host:carter.mhr.itb
       - traefik.docker.network=web
       - traefik.port=80
