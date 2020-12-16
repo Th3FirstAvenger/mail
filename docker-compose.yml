@@ -1,0 +1,77 @@
+version: '3'
+
+services:
+  # [EXTRA] Em fa de reverse proxy
+  traefik:
+    image: traefik:1.7.6-alpine
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+      - web
+    volumes:
+      - $PWD/acme.json:/acme.json # Ruta SSL 
+      - $PWD/traefik.toml:/traefik.toml # Fitxer de configuració
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.frontend.auth.basic=$ADMIN_USER:$HASHED_PASSWORD" # Demanar credencials per accedir previament exportades
+      - "traefik.docker.network=web"
+      - traefik.frontend.rule=Host:traefik.mhr.itb
+      - traefik.port=8080
+
+  # Monitoritzar els sistemes
+  monit:
+    image: pottava/docker-webui
+    expose:
+      - "9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - web
+    labels: # Creem els nivells necessaris per traefik
+      - "traefik.backend=monitor"
+      - "traefik.frontend.rule=Host:$MONITOR_DOMAIN"
+      - "traefik.docker.network=web"
+      - "traefik.enable=true"
+      - "traefik.port=9000"
+      - "traefik.default.protocol=http"
+      - "traefik.frontend.auth.basic=$ADMIN_USER:$HASHED_PASSWORD" # aquestes variables les exporto en el start.sh
+
+# Web utilitzant el servei nginx, proporciona la informació i descripció de la infraestuctura.
+  guasap:
+    image: php:7-apache
+    restart: always
+    volumes:
+      - $PWD/guasap:/var/www/html:ro
+    labels:
+      - traefik.backend=guasap
+      - traefik.frontend.rule=Host:guasap.mhr.itb
+      - traefik.docker.network=web
+      - traefik.port=80
+    networks:
+      - internal
+      - web
+
+# Web utilitzant el servei nginx mostra les instruccions a seguir 
+  carter:
+    image: nginx
+    restart: always
+    volumes:
+      - ./carter:/usr/share/nginx/html:ro
+    labels:
+      - traefik.backend=carter
+      - traefik.frontend.auth.basic=profe:$$apr1$$UezplC3K$$xvjfaBhEE7fa8nauK/RMm1 # Demanar credencials per accedir previament exportades
+      - traefik.frontend.rule=Host:carter.mhr.itb
+      - traefik.docker.network=web
+      - traefik.port=80
+    networks:
+      - internal
+      - web
+networks:
+  web:
+    external: true
+  internal:
+    external: false
+volumes:
+  portainer_data: {}
